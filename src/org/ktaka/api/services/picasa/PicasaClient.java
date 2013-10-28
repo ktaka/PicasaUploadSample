@@ -15,6 +15,8 @@
 
 package org.ktaka.api.services.picasa;
 
+import android.util.Log;
+
 import com.google.api.client.http.AbstractInputStreamContent;
 import com.google.api.client.http.HttpHeaders;
 import com.google.api.client.http.HttpRequest;
@@ -32,6 +34,8 @@ import org.ktaka.api.services.picasa.model.AlbumEntry;
 import org.ktaka.api.services.picasa.model.AlbumFeed;
 import org.ktaka.api.services.picasa.model.Entry;
 import org.ktaka.api.services.picasa.model.Feed;
+import org.ktaka.api.services.picasa.model.GeorssWhere;
+import org.ktaka.api.services.picasa.model.GmlPoint;
 import org.ktaka.api.services.picasa.model.PhotoEntry;
 import org.ktaka.api.services.picasa.model.TagEntry;
 import org.ktaka.api.services.picasa.model.UserFeed;
@@ -114,9 +118,12 @@ public final class PicasaClient extends GDataXmlClient {
   }
 
   public PhotoEntry executeInsertPhotoEntryWithMetadata(
-      PhotoEntry photo, PicasaUrl albumFeedUrl, InputStreamContent content)
+      PhotoEntry photo, PicasaUrl albumFeedUrl, InputStreamContent content, GmlPoint point)
       throws IOException {
-    HttpRequest request = getRequestFactory().buildPostRequest(albumFeedUrl, null);
+	GeorssWhere georss = new GeorssWhere();
+	georss.point = point;
+	photo.georssWhere = georss;
+	HttpRequest request = getRequestFactory().buildPostRequest(albumFeedUrl, null);
     AtomContent atomContent = AtomContent.forEntry(DICTIONARY, photo);
     request.setContent(new MultipartContent().setContentParts(Arrays.asList(atomContent, content)));
     request.getHeaders().setMimeVersion("1.0");
@@ -129,4 +136,5 @@ public final class PicasaClient extends GDataXmlClient {
 	  request.setContent(atomContent);
 	  execute(request);
   }
+  
 }

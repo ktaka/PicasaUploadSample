@@ -25,6 +25,7 @@ import org.ktaka.api.services.picasa.PicasaClient;
 import org.ktaka.api.services.picasa.PicasaUrl;
 import org.ktaka.api.services.picasa.model.AlbumEntry;
 import org.ktaka.api.services.picasa.model.AlbumFeed;
+import org.ktaka.api.services.picasa.model.GmlPoint;
 import org.ktaka.api.services.picasa.model.PhotoEntry;
 import org.ktaka.api.services.picasa.model.TagEntry;
 import org.ktaka.api.services.picasa.model.UserFeed;
@@ -37,6 +38,7 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson.JacksonFactory;
 
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -44,9 +46,11 @@ import android.provider.MediaStore;
 import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.util.Log;
 import android.view.Menu;
 import android.view.View;
@@ -145,8 +149,9 @@ public class PicasaUploadActivity extends Activity {
 		PhotoEntry photo = new PhotoEntry();
 		photo.title = "未来へのキオクのテスト";
 		photo.summary =  "未来へのキオクへの upload API のテストです。";
+		GmlPoint point = GmlPoint.createLatLon(35.626446, 139.723444);
 		PhotoEntry result = client.executeInsertPhotoEntryWithMetadata(
-				photo, new PicasaUrl(album.getFeedLink()), imgContent);
+				photo, new PicasaUrl(album.getFeedLink()), imgContent, point);
 		Log.i(TAG, "Image URL with Metadata: " + result.mediaGroup.content.url);
 		return result;
 	}
@@ -227,6 +232,8 @@ public class PicasaUploadActivity extends Activity {
 					editor.commit();
 					AsyncLoadTasks.run(this);
 				}
+			} else if (resultCode == Activity.RESULT_CANCELED) {
+				finish();
 			}
 			break;
 		case REQUEST_PICKED_FROM_GALLERY:
@@ -247,13 +254,84 @@ public class PicasaUploadActivity extends Activity {
 		}
 	}
 	
+	public static String getPath(Context context, Uri uri) {
+	    ContentResolver contentResolver = context.getContentResolver();
+	    String[] columns = { MediaStore.Images.Media.DATA };
+	    Cursor cursor = contentResolver.query(uri, columns, null, null, null);
+	    cursor.moveToFirst();
+	    String path = cursor.getString(0);
+	    cursor.close();
+	    return path;
+	}
+	
+	static class GPS {
+	    private static StringBuilder sb = new StringBuilder(20);
+
+	    /**
+	     * returns ref for latitude which is S or N.
+	     * @param latitude
+	     * @return S or N
+	     */
+	    public static String latitudeRef(double latitude) {
+	        return latitude<0.0d?"S":"N";
+	    }
+
+	    /**
+	     * returns ref for latitude which is S or N.
+	     * @param latitude
+	     * @return S or N
+	     */
+	    public static String longitudeRef(double longitude) {
+	        return longitude<0.0d?"W":"E";
+	    }
+
+	    /**
+	     * convert latitude into DMS (degree minute second) format. For instance<br/>
+	     * -79.948862 becomes<br/>
+	     *  79/1,56/1,55903/1000<br/>
+	     * It works for latitude and longitude<br/>
+	     * @param latitude could be longitude.
+	     * @return
+	     */
+	    synchronized public static final String convert(double latitude) {
+	        latitude=Math.abs(latitude);
+	        int degree = (int) latitude;
+	        latitude *= 60;
+	        latitude -= (degree * 60.0d);
+	        int minute = (int) latitude;
+	        latitude *= 60;
+	        latitude -= (minute * 60.0d);
+	        int second = (int) (latitude*1000.0d);
+
+	        sb.setLength(0);
+	        sb.append(degree);
+	        sb.append("/1,");
+	        sb.append(minute);
+	        sb.append("/1,");
+	        sb.append(second);
+	        sb.append("/1000,");
+	        return sb.toString();
+	    }
+	}
+	
+	void addGeolocationToExif(Uri uri, double lat, double lon) throws IOException {
+		String fileName = getPath(this, uri);
+		ExifInterface exif = new ExifInterface(fileName);
+		exif.setAttribute(ExifInterface.TAG_GPS_LATITUDE, GPS.convert(lat));
+		exif.setAttribute(ExifInterface.TAG_GPS_LATITUDE_REF, GPS.latitudeRef(lat));
+		exif.setAttribute(ExifInterface.TAG_GPS_LONGITUDE, GPS.convert(lon));
+		exif.setAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF, GPS.longitudeRef(lon));
+		exif.saveAttributes();
+	}
+	
 	void uploadPhoto(Uri uri) {
 		try {
 			AlbumEntry album =  postAlbum(feed);
+			//addGeolocationToExif(uri, 35.607267, 140.106291);
 			//PhotoEntry photo = postPhoto(album, uri);
 			PhotoEntry photo = postPhotoWithMetaData(album, uri);
 			String feedLink = photo.getFeedLink();
-			addTagToPhoto(feedLink, "miraikioku");
+			addTagToPhoto(feedLink, "foo");
 			Log.i(TAG, feedLink + " was uploaded.");
 		} catch (IOException e) {
 			e.printStackTrace();
