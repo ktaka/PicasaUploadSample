@@ -26,4 +26,8 @@ public class PhotoEntry extends Entry {
 
   @Key("media:group")
   public MediaGroup mediaGroup;
+  
+  @Key("georss:where")
+  public GeorssWhere georssWhere;
+  
 }

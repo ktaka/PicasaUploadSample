@@ -25,6 +25,7 @@ import org.ktaka.api.services.picasa.PicasaClient;
 import org.ktaka.api.services.picasa.PicasaUrl;
 import org.ktaka.api.services.picasa.model.AlbumEntry;
 import org.ktaka.api.services.picasa.model.AlbumFeed;
+import org.ktaka.api.services.picasa.model.GmlPoint;
 import org.ktaka.api.services.picasa.model.PhotoEntry;
 import org.ktaka.api.services.picasa.model.TagEntry;
 import org.ktaka.api.services.picasa.model.UserFeed;
@@ -37,6 +38,7 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson.JacksonFactory;
 
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -44,9 +46,11 @@ import android.provider.MediaStore;
 import android.accounts.AccountManager;
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.util.Log;
 import android.view.Menu;
 import android.view.View;
@@ -145,8 +149,9 @@ public class PicasaUploadActivity extends Activity {
 		PhotoEntry photo = new PhotoEntry();
 		photo.title = "未来へのキオクのテスト";
 		photo.summary =  "未来へのキオクへの upload API のテストです。";
+		GmlPoint point = GmlPoint.createLatLon(35.626446, 139.723444);
 		PhotoEntry result = client.executeInsertPhotoEntryWithMetadata(
-				photo, new PicasaUrl(album.getFeedLink()), imgContent);
+				photo, new PicasaUrl(album.getFeedLink()), imgContent, point);
 		Log.i(TAG, "Image URL with Metadata: " + result.mediaGroup.content.url);
 		return result;
 	}
@@ -227,6 +232,8 @@ public class PicasaUploadActivity extends Activity {
 					editor.commit();
 					AsyncLoadTasks.run(this);
 				}
+			} else if (resultCode == Activity.RESULT_CANCELED) {
+				finish();
 			}
 			break;
 		case REQUEST_PICKED_FROM_GALLERY:
@@ -246,14 +253,14 @@ public class PicasaUploadActivity extends Activity {
 			
 		}
 	}
-	
+
 	void uploadPhoto(Uri uri) {
 		try {
 			AlbumEntry album =  postAlbum(feed);
 			//PhotoEntry photo = postPhoto(album, uri);
 			PhotoEntry photo = postPhotoWithMetaData(album, uri);
 			String feedLink = photo.getFeedLink();
-			addTagToPhoto(feedLink, "miraikioku");
+			addTagToPhoto(feedLink, "foo");
 			Log.i(TAG, feedLink + " was uploaded.");
 		} catch (IOException e) {
 			e.printStackTrace();
